@@ -1,0 +1,38 @@
+{
+  "name": "dsh-egress",
+  "unit": "dsh-egress",
+  "version": "0.1.0",
+  "previousVersion": "0.0.0",
+  "title": "出网组件（xray / ip rule / 模型隧道 / 模型反代）",
+  "kind": "infra",
+  "services": [
+    "dsh-gpt-proxy",
+    "dsh-gpt-proxy-egress",
+    "dsh-model-egress",
+    "dsh-xray-egress",
+    "dsh-model-tunnel",
+    "dsh-model-http",
+    "dsh-ollama-shim",
+    "dsh-tokenstore-egress",
+    "dsh-exitnode-watchdog",
+    "dsh-mobile-guard"
+  ],
+  "ports": [
+    11434,
+    11435,
+    11439,
+    10801
+  ],
+  "pluginDir": null,
+  "hasVenv": false,
+  "hasNode": false,
+  "hasHarness": false,
+  "generatedAt": "2026-11-01T22:41:42+08:00",
+  "host": "lgsj",
+  "installScope": [
+    "host-profile",
+    "all-existing-accounts"
+  ],
+  "baseRepo": "imasonhk-spec/dsh",
+  "baseTag": "v0.2.0"
+}

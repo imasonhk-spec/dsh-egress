@@ -1,0 +1,12 @@
+[Unit]
+Description=GPT dedicated proxy destination route via Wi-Fi
+Wants=network-online.target
+After=network-online.target
+Before=dsh-gpt-proxy.service
+[Service]
+Type=oneshot
+ExecStartPre=/usr/local/sbin/dsh-egress-route.sh 172.67.203.184/32 5102
+ExecStart=/bin/sh -c '/usr/sbin/ip rule show | /usr/bin/grep -q "^5102:.*to 172.67.203.184.*lookup main" || /usr/sbin/ip rule add priority 5102 to 172.67.203.184/32 lookup main'
+RemainAfterExit=yes
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,18 @@
+[Unit]
+Description=DSH third-party model TCP tunnel bridge (via Windows relay 192.168.8.7:18899)
+After=network.target
+
+[Service]
+Type=simple
+User=lgsj
+Environment=BRIDGE_LISTEN_PORT=25443
+Environment=BRIDGE_TARGET_HOST=45.76.203.143
+Environment=BRIDGE_TARGET_PORT=25443
+Environment=BRIDGE_PROXY_HOST=192.168.8.7
+Environment=BRIDGE_PROXY_PORT=18899
+ExecStart=/usr/bin/python3 /home/lgsj/.dsh/model-tunnel-bridge.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

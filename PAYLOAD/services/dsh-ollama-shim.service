@@ -1,0 +1,24 @@
+[Unit]
+Description=DSH 本地模型统一入口 shim（11434 + 11435 -> 11439 Ollama/ROCm）
+# 后端容器必须先在：
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+User=lgsj
+WorkingDirectory=/home/lgsj/dsh-ollama-shim
+# 11435：raganything admin/mason/test 的历史配置（保持兼容）
+# 11434：本地模型事实标准端口（DSH 本地模型 provider / 宿主 raganything / meetily / pmkanban）
+Environment=SHIM_LISTEN=127.0.0.1:11435,0.0.0.0:11434
+# 这些模型在 /v1 与 /api 两条路径上都会被注入 keep_alive:-1（ollama 的 -1 默认值
+# 对 OpenAI 兼容端点无效，见 index.js 注释）。留空可关闭。
+Environment=SHIM_KEEP_ALIVE_MODELS=huiwen-luna:latest
+ExecStart=/usr/local/bin/node /home/lgsj/dsh-ollama-shim/index.js
+Restart=always
+RestartSec=2
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

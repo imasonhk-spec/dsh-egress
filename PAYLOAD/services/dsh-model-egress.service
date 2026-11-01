@@ -1,0 +1,14 @@
+[Unit]
+Description=GPT upstream route via Wi-Fi
+Wants=network-online.target
+After=network-online.target
+Before=dsh-model-http.service
+
+[Service]
+Type=oneshot
+ExecStartPre=/usr/local/sbin/dsh-egress-route.sh 45.76.203.143/32 5100
+ExecStart=/bin/sh -c '/usr/sbin/ip rule show | /usr/bin/grep -q "^5100:.*to 45.76.203.143.*lookup main" || /usr/sbin/ip rule add priority 5100 to 45.76.203.143/32 lookup main'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

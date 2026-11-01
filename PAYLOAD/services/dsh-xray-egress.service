@@ -1,0 +1,14 @@
+[Unit]
+Description=Xray upstream route via Wi-Fi (bypass tailscale exit node)
+Wants=network-online.target
+After=network-online.target
+Before=tailscaled.service xray.service dsh-model-tunnel.service
+
+[Service]
+Type=oneshot
+ExecStartPre=/usr/local/sbin/dsh-egress-route.sh 104.26.8.13/32 5099
+ExecStart=/bin/sh -c '/usr/sbin/ip rule show | /usr/bin/grep -q "^5099:.*to 104.26.8.13.*lookup main" || /usr/sbin/ip rule add priority 5099 to 104.26.8.13/32 lookup main'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
