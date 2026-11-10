@@ -1,8 +1,8 @@
 {
   "name": "dsh-egress",
   "unit": "dsh-egress",
-  "version": "0.1.0",
-  "previousVersion": "0.0.0",
+  "version": "0.1.1",
+  "previousVersion": "0.1.0",
   "title": "出网组件（xray / ip rule / 模型隧道 / 模型反代）",
   "kind": "infra",
   "services": [
@@ -27,7 +27,7 @@
   "hasVenv": false,
   "hasNode": false,
   "hasHarness": false,
-  "generatedAt": "2026-11-02T07:53:39+08:00",
+  "generatedAt": "2026-11-10T10:26:49+08:00",
   "host": "lgsj",
   "installScope": [
     "host-profile",

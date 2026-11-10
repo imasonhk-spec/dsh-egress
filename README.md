@@ -1,4 +1,4 @@
-# dsh-egress 0.1.0
+# dsh-egress 0.1.1
 
 出网组件（xray / ip rule / 模型隧道 / 模型反代）
 
@@ -20,8 +20,8 @@
 ## 安装
 
 ```bash
-tar -xzf dsh-egress-0.1.0.tar.gz
-cd dsh-egress-0.1.0
+tar -xzf dsh-egress-0.1.1.tar.gz
+cd dsh-egress-0.1.1
 sudo ./install.sh
 ```
 

@@ -6,8 +6,8 @@ Before=tailscaled.service xray.service dsh-model-tunnel.service
 
 [Service]
 Type=oneshot
-ExecStartPre=/usr/local/sbin/dsh-egress-route.sh 104.26.8.13/32 5099
-ExecStart=/bin/sh -c '/usr/sbin/ip rule show | /usr/bin/grep -q "^5099:.*to 104.26.8.13.*lookup main" || /usr/sbin/ip rule add priority 5099 to 104.26.8.13/32 lookup main'
+ExecStartPre=/usr/local/sbin/dsh-egress-route.sh 172.67.203.184/32 5102
+ExecStart=/bin/sh -c '/usr/sbin/ip rule show | /usr/bin/grep -q "^5102:.*to 172.67.203.184.*lookup main" || /usr/sbin/ip rule add priority 5102 to 172.67.203.184/32 lookup main'
 RemainAfterExit=yes
 
 [Install]

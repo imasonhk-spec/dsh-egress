@@ -3,7 +3,7 @@
 set -euo pipefail
 
 PKG_NAME="dsh-egress"
-PKG_VERSION="0.1.0"
+PKG_VERSION="0.1.1"
 PLUGIN_DIR=""
 SERVICES="dsh-gpt-proxy dsh-gpt-proxy-egress dsh-model-egress dsh-xray-egress dsh-model-tunnel dsh-model-http dsh-ollama-shim dsh-tokenstore-egress dsh-exitnode-watchdog dsh-mobile-guard"
 

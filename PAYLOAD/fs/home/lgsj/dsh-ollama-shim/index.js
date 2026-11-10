@@ -2,7 +2,109 @@
 const http = require('http');
 
 const TARGET_HOST = '127.0.0.1';
-const TARGET_PORT = 18100; // Huiwen Agron gateway; native Ollama remains at 11439.
+const TARGET_PORT = 18100; // 默认上游（Agron），启动日志仍用
+
+/* MB86-TOKEN-CLAMP:START
+ * Agron 的输出上限是硬上限（capacity.json maxOutputTokens = 容器 --max-tokens = 2048）。
+ * 超限时 gateway.mjs:105 直接 400，整轮对话失败。DSH 按 provider 的
+ * defaultMaxTokens（8.6 是 32768）发请求，必然超限，所以在这里夹住。
+ * 只夹会打到 Agron 的请求；deepseek-r1 走 11440 Ollama，不受影响。
+ */
+const AG_R1_RE = /^deepseek-r1/i;
+const AG_LIMIT = Number(process.env.SHIM_AG_LIMIT || 32768); // 2026-11-04: 2048 -> 32768, override via SHIM_AG_LIMIT
+function mb86IsAgronBound(m) {
+  if (typeof m !== 'string' || m === '') return true;   // 无 model 名，按默认（Agron）处理
+  return !AG_R1_RE.test(m);
+}
+function mb86ClampTokens(json) {
+  if (!json || typeof json !== 'object') return;
+  if (!mb86IsAgronBound(json.model)) return;
+  for (const f of ['max_tokens', 'max_completion_tokens']) {
+    const v = json[f];
+    if (v === undefined || v === null) continue;
+    const n = Number(v);
+    if (!Number.isFinite(n)) { delete json[f]; continue; }
+    if (n === -1) continue;                 // -1 = 不限，交给 Agron 落到它自己的默认值
+    if (n > AG_LIMIT) {
+      process.stderr.write('[shim] clamp ' + f + ' ' + n + ' -> ' + AG_LIMIT
+        + ' (model=' + json.model + ')\n');
+      json[f] = AG_LIMIT;
+    } else if (n < 1) {
+      delete json[f];
+    }
+  }
+  if (json.options && typeof json.options === 'object' && json.options.num_predict != null) {
+    const n = Number(json.options.num_predict);
+    if (Number.isFinite(n) && n !== -1 && n > AG_LIMIT) {
+      process.stderr.write('[shim] clamp options.num_predict ' + n + ' -> ' + AG_LIMIT + '\n');
+      json.options.num_predict = AG_LIMIT;
+    }
+  }
+}
+/* MB86-TOKEN-CLAMP:END */
+/*__MB86_ROUTER__*/
+// ── 多上游路由表（由 patch_shim_router_8.6.js 注入）──────────────
+// 匹配规则：从上到下，第一个命中的为准；都不中则用 DEFAULT。
+const MB86_UPSTREAMS = [
+  { name: 'memory-bridge', host: '127.0.0.1', port: 18200,
+    test: (m) => typeof m === 'string' && /^huiwen-2-agron-memory/i.test(m) },
+  { name: 'ollama-r1', host: '127.0.0.1', port: 11440,
+    test: (m) => typeof m === 'string' && /^deepseek-r1/i.test(m) },
+];
+const MB86_DEFAULT = { name: 'agron', host: TARGET_HOST, port: TARGET_PORT };
+// 允许用环境变量整体关掉分流（应急回滚用，不用改文件）
+const MB86_ROUTER_ON = process.env.SHIM_ROUTER !== '0';
+
+function mb86Pick(model) {
+  if (!MB86_ROUTER_ON) return MB86_DEFAULT;
+  for (const u of MB86_UPSTREAMS) if (u.test(model)) return u;
+  return MB86_DEFAULT;
+}
+// /v1/models 与 /api/tags 需要把各上游的列表合并（否则下拉选不到）
+const MB86_LIST_PATHS = new Set(['/v1/models', '/api/tags']);
+// 静态兜底条目：bridge 自己不实现列表端点，且它的「模型」本质是 Agron 的模型，
+// 只能靠这里补一条虚拟条目，前端下拉才选得到。
+const MB86_EXTRA_MODELS = [
+  { id: 'huiwen-2-agron-memory:latest', name: 'huiwen-2-agron-memory:latest',
+    size: 111334654784,
+    digest: '9828c920376cd991daa9869b21d44e0f104ddb851ff47700786ce075c85e4cda',
+    details: { format: 'gguf', family: 'huiwen-agron', families: ['huiwen-agron'],
+               parameter_size: '35B', quantization_level: 'Q4_K_XL' } },
+];
+
+// 🔴 列表必须「实时向各上游拉取后合并」，不能只把静态条目 append 到默认上游的响应上。
+//    原因：deepseek-r1 只存在于 11440，默认上游（Agron:18100）的列表里根本没有它；
+//    不主动去 11440 拉一次，前端就永远看不到 R1 —— 那 R1 装了等于没装。
+function mb86FetchList(up, urlPath) {
+  return new Promise((resolve) => {
+    const hdrs = { host: up.host + ':' + up.port, accept: 'application/json' };
+    const r = http.request({ method: 'GET', host: up.host, port: up.port, path: urlPath,
+      headers: hdrs, timeout: 5000 }, (pres) => {
+      const cs = [];
+      pres.on('data', (c) => cs.push(c));
+      pres.on('end', () => {
+        try {
+          resolve({ ok: pres.statusCode === 200, obj: JSON.parse(Buffer.concat(cs).toString('utf8')) });
+        } catch (_e) { resolve({ ok: false, obj: null }); }
+      });
+      pres.on('error', () => resolve({ ok: false, obj: null }));
+    });
+    r.on('timeout', () => { r.destroy(); resolve({ ok: false, obj: null }); });
+    r.on('error', () => resolve({ ok: false, obj: null }));
+    r.end();
+  });
+}
+// 取某类列表的「条目数组」，/v1/models 用 data[]，/api/tags 用 models[]
+function mb86Arr(obj, urlPath) {
+  if (!obj || typeof obj !== 'object') return null;
+  if (urlPath === '/v1/models') return Array.isArray(obj.data) ? obj.data : (obj.data = []);
+  return Array.isArray(obj.models) ? obj.models : (obj.models = []);
+}
+function mb86IdOf(item, urlPath) {
+  if (!item || typeof item !== 'object') return '';
+  return urlPath === '/v1/models' ? String(item.id || '') : String(item.name || item.model || '');
+}
+
 // 需要常驻的模型：注入 keep_alive:-1。
 // 为什么必须在这里做：ollama 的 OpenAI 兼容端点(/v1/chat/completions)不会沿用
 // 后端的 OLLAMA_KEEP_ALIVE，而是每次请求把该模型的到期时间重置为默认 5 分钟
@@ -78,9 +180,12 @@ function handleRequest(req, res) {
   req.on('end', () => {
     let body = Buffer.concat(chunks);
     let rewrote = false;
+    let mb86Model = null;   // /*__MB86_ROUTER__*/ 从请求体抓到的 model 名
     if (req.method === 'POST' && LLM_PATHS.has(urlPath)) {
       try {
         const json = JSON.parse(body.toString('utf8'));
+        if (json && typeof json.model === 'string') mb86Model = json.model;
+        mb86ClampTokens(json); // MB86-TOKEN-CLAMP
         if (json && Array.isArray(json.tools) && normalizeTools(json.tools)) rewrote = true;
         // 常驻：仅对清单内模型、且调用方未显式指定 keep_alive 时注入，不覆盖调用方选择。
         // 非常驻：显式回落为有限 keep_alive。否则【容器级】OLLAMA_KEEP_ALIVE=-1 会把
@@ -116,12 +221,17 @@ function handleRequest(req, res) {
     }
     const headers = Object.assign({}, req.headers);
     delete headers['transfer-encoding'];
-    headers['host'] = TARGET_HOST + ':' + TARGET_PORT;
+    const mb86Up = mb86Pick(mb86Model);
+    headers['host'] = mb86Up.host + ':' + mb86Up.port;
+    if (mb86Up.name !== MB86_DEFAULT.name) {
+      process.stderr.write('[shim] route model=' + mb86Model + ' -> ' + mb86Up.name
+        + ' (' + mb86Up.host + ':' + mb86Up.port + ') ' + urlPath + '\n');
+    }
     headers['content-length'] = Buffer.byteLength(body);
     const options = {
       method: req.method,
-      host: TARGET_HOST,
-      port: TARGET_PORT,
+      host: mb86Up.host,
+      port: mb86Up.port,
       path: req.url,
       headers: headers,
     };
@@ -131,6 +241,65 @@ function handleRequest(req, res) {
       upstreamResponse = pres;
       if (res.destroyed) {
         pres.destroy();
+        return;
+      }
+      // /*__MB86_ROUTER__*/ 列表类响应必须合并各上游 + 静态条目，不能直接 pipe
+      if (MB86_LIST_PATHS.has(urlPath) && pres.statusCode === 200 && req.method === 'GET') {
+        const mb86Chunks = [];
+        pres.on('data', (c) => mb86Chunks.push(c));
+        pres.on('end', async () => {
+          let payloadText = Buffer.concat(mb86Chunks).toString('utf8');
+          try {
+            const base = JSON.parse(payloadText);
+            // ① 默认上游（Agron）的列表作为基底
+            const seen = new Set();
+            for (const it of mb86Arr(base, urlPath) || []) {
+              const id = mb86IdOf(it, urlPath);
+              if (id) seen.add(id);
+            }
+            // ② 向每个「真上游」实时拉列表并并入（R1 只在 11440，不拉就永远看不到）
+            const lists = await Promise.all(MB86_UPSTREAMS.map((u) => mb86FetchList(u, urlPath)));
+            for (let i = 0; i < MB86_UPSTREAMS.length; i++) {
+              const res2 = lists[i];
+              if (!res2.ok || !res2.obj) {
+                process.stderr.write('[shim] list pull failed from ' + MB86_UPSTREAMS[i].name + ' ' + urlPath + '\n');
+                continue;
+              }
+              const src = mb86Arr(res2.obj, urlPath);
+              if (!Array.isArray(src)) continue;
+              const dst = mb86Arr(base, urlPath);
+              for (const it of src) {
+                const id = mb86IdOf(it, urlPath);
+                if (!id || seen.has(id)) continue;
+                seen.add(id);
+                // memory 别名在 clean 层是"虚拟模型"，不该被 R1 的同名条目顶掉
+                dst.push(it);
+              }
+            }
+            // ③ 静态条目（bridge 别名，上游没有实体）
+            const dst = mb86Arr(base, urlPath);
+            for (const ex of MB86_EXTRA_MODELS) {
+              if (seen.has(ex.id)) continue;
+              seen.add(ex.id);
+              if (urlPath === '/v1/models') {
+                dst.push({ id: ex.id, object: 'model', owned_by: 'local', created: 0 });
+              } else {
+                dst.push({ name: ex.id, model: ex.id, modified_at: '2026-11-03T00:00:00Z',
+                  size: ex.size, digest: ex.digest, details: ex.details });
+              }
+            }
+            payloadText = JSON.stringify(base);
+          } catch (e) {
+            process.stderr.write('[shim] list merge failed, passthrough: ' + e.message + '\n');
+          }
+          const hdr = Object.assign({}, pres.headers);
+          delete hdr['transfer-encoding'];
+          delete hdr['content-length'];
+          hdr['content-length'] = Buffer.byteLength(payloadText);
+          res.writeHead(pres.statusCode, hdr);
+          res.end(payloadText);
+        });
+        pres.on('error', () => { try { res.end(); } catch (_e) {} });
         return;
       }
       res.writeHead(pres.statusCode, pres.headers);
