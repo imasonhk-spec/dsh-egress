@@ -1,0 +1,8 @@
+[Unit]
+Description=DSH exit node watchdog (keep egress alive)
+Wants=network-online.target
+After=network-online.target tailscaled.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/dsh-exitnode-watchdog.sh

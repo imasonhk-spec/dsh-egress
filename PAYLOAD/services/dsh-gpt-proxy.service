@@ -1,0 +1,16 @@
+[Unit]
+Description=GPT model proxy for the configured API endpoint
+Wants=network-online.target
+After=network-online.target
+Before=dsh-model-http.service
+
+[Service]
+Type=simple
+User=lgsj
+ExecStart=/usr/local/bin/xray run -c /home/lgsj/.dsh/gpt-only-proxy.json
+Restart=on-failure
+RestartSec=3
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

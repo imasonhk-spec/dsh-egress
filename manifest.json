@@ -1,0 +1,134 @@
+{
+  "name": "dsh-egress",
+  "unit": "dsh-egress",
+  "version": "0.1.2",
+  "previousVersion": "0.1.1",
+  "title": "出网组件（xray / ip rule / 模型隧道 / 模型反代）",
+  "kind": "infra",
+  "services": [
+    "dsh-gpt-proxy",
+    "dsh-gpt-proxy-egress",
+    "dsh-model-egress",
+    "dsh-xray-egress",
+    "dsh-model-tunnel",
+    "dsh-model-http",
+    "dsh-ollama-shim",
+    "dsh-tokenstore-egress",
+    "dsh-exitnode-watchdog",
+    "dsh-mobile-guard"
+  ],
+  "ports": [
+    11434,
+    11435,
+    11439,
+    10801
+  ],
+  "pluginDir": null,
+  "hasVenv": false,
+  "hasNode": false,
+  "hasHarness": false,
+  "generatedAt": "2026-11-10T12:48:09+08:00",
+  "host": "lgsj",
+  "installScope": [
+    "host-profile",
+    "all-existing-accounts"
+  ],
+  "baseRepo": "imasonhk-spec/dsh",
+  "baseTag": "v0.2.0",
+  "fsEntries": [
+    {
+      "src": "/usr/local/bin/xray",
+      "dst": "fs/usr/local/bin/xray",
+      "type": "file",
+      "mode": "0o755",
+      "size": 36577406,
+      "sha256": "8255dd939c34cf966cc91517b6324dd3c8d0bcf49ffac8beca049a38c46845ed"
+    },
+    {
+      "src": "/home/lgsj/.dsh/gpt-only-proxy.json",
+      "dst": "fs/home/lgsj/.dsh/gpt-only-proxy.json",
+      "type": "file",
+      "mode": "0o600",
+      "size": 1971,
+      "sha256": "72ccd95eec360e4ef9a9c375fb96c999dd2554b08b3a6b655240dfcd4af54a55"
+    },
+    {
+      "src": "/usr/local/sbin/dsh-egress-route.sh",
+      "dst": "fs/usr/local/sbin/dsh-egress-route.sh",
+      "type": "file",
+      "mode": "0o755",
+      "size": 1682,
+      "sha256": "d953f01ea16ddb6f98bad1044f3e5e5491eccec49444de738a47ef9501c76146"
+    },
+    {
+      "src": "/home/lgsj/.dsh/model-tunnel-bridge.py",
+      "dst": "fs/home/lgsj/.dsh/model-tunnel-bridge.py",
+      "type": "file",
+      "mode": "0o664",
+      "size": 3366,
+      "sha256": "15cc49a055dc4b8833bd5677e45d13449d84bd8be6a2eb51905f3d19a063ea54"
+    },
+    {
+      "src": "/usr/local/bin/node",
+      "dst": "fs/usr/local/bin/node",
+      "type": "symlink",
+      "target": "/usr/local/node/bin/node"
+    },
+    {
+      "src": "/home/lgsj/.dsh/model-http-reverse.js",
+      "dst": "fs/home/lgsj/.dsh/model-http-reverse.js",
+      "type": "file",
+      "mode": "0o600",
+      "size": 5916,
+      "sha256": "c472e330ad0b3f3324b410f3198260d3c75a5a71d56ee39af499532008c9fda2"
+    },
+    {
+      "src": "/home/lgsj/dsh-ollama-shim",
+      "dst": "fs/home/lgsj/dsh-ollama-shim",
+      "type": "dir"
+    },
+    {
+      "src": "/usr/local/sbin/dsh-tokenstore-egress",
+      "dst": "fs/usr/local/sbin/dsh-tokenstore-egress",
+      "type": "file",
+      "mode": "0o755",
+      "size": 2297,
+      "sha256": "1a3ba3efaff8fb394895686c4f87240b6ba71fb40d2a6366410f520012b6f397"
+    },
+    {
+      "src": "/usr/local/bin/dsh-exitnode-watchdog.sh",
+      "dst": "fs/usr/local/bin/dsh-exitnode-watchdog.sh",
+      "type": "file",
+      "mode": "0o755",
+      "size": 1549,
+      "sha256": "ac89ed7ac877d3cdc122d50c82a121096db39c7d9ecfb889cc26a80f317369c4"
+    },
+    {
+      "src": "/etc/dsh-mobile-network/guard.nft",
+      "dst": "fs/etc/dsh-mobile-network/guard.nft",
+      "type": "file",
+      "mode": "0o644",
+      "size": 658,
+      "sha256": "7e92464a9cc14135cea5ff31e69e48d10470278adf16cc2573d3a32248e617d1"
+    }
+  ],
+  "aptProvides": [
+    "/usr/bin/grep",
+    "/usr/bin/python3",
+    "/usr/sbin/ip",
+    "/usr/sbin/nft"
+  ],
+  "runtimeFrom": [
+    "/usr/local/node"
+  ],
+  "pathRemap": [
+    {
+      "from": "/home/lgsj/.dsh",
+      "to": "@DSH_HOME@"
+    },
+    {
+      "from": "/home/lgsj",
+      "to": "@USER_HOME@"
+    }
+  ]
+}

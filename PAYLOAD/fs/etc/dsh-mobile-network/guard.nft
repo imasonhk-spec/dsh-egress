@@ -1,0 +1,16 @@
+# managed-by: netadmin node-agent（本文件由 agent 自动覆盖，勿手改）
+table inet dsh_mobile_guard {
+    chain input {
+        type filter hook input priority -5; policy accept;
+        iifname "wg-dsh" udp dport 41641 counter drop
+        iifname "wg-dsh" ct state established,related accept
+        iifname "wg-dsh" ip saddr 10.203.77.1 tcp dport 3082 accept
+        iifname "wg-dsh" ip saddr 10.203.77.1 icmp type echo-request accept
+        iifname "wg-dsh" counter drop
+    }
+    chain forward {
+        type filter hook forward priority -5; policy accept;
+        iifname "wg-dsh" counter drop
+        oifname "wg-dsh" counter drop
+    }
+}

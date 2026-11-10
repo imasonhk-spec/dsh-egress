@@ -1,0 +1,13 @@
+[Unit]
+Description=DSH dedicated WireGuard interface isolation
+Before=wg-quick@wg-dsh.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/usr/sbin/nft --check --file /etc/dsh-mobile-network/guard.nft
+ExecStart=/usr/sbin/nft --file /etc/dsh-mobile-network/guard.nft
+ExecStop=/usr/sbin/nft delete table inet dsh_mobile_guard
+
+[Install]
+WantedBy=multi-user.target
